@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <unistd.h>
+#include <sys/wait.h>
 
 using namespace std;
 
@@ -8,7 +9,8 @@ int RECURSION_LIMIT = 100;
 int SPLIT_FACTOR = 10;
 
 int result_pipe[2], lock_pipe[2];
-char msg_read[256], msg_write[256], lock[1];
+double msg_read, msg_write;
+char lock[1];
 
 void print_args_error() {
     cout << "Wrong args" << endl;
@@ -39,6 +41,13 @@ double calculate_integral(double a, double b, double epsilon, int recursion_limi
 
 }
 
+void close_all_pipes() {
+    close(result_pipe[0]);
+    close(result_pipe[1]);
+    close(lock_pipe[0]);
+    close(lock_pipe[0]);
+}
+
 
 void child_main(int id, double _a, double _b, double epsilon) {
     double result = calculate_integral(_a, _b, epsilon, RECURSION_LIMIT);
@@ -47,9 +56,9 @@ void child_main(int id, double _a, double _b, double epsilon) {
     read(lock_pipe[0], lock, 1);
 
     //write in pipe
-    sprintf(msg_write, "%f", result);
-    write(result_pipe[1], msg_write, 256);
-
+    msg_write = result;
+    write(result_pipe[1], &msg_write, sizeof(double));
+    close_all_pipes();
     cout << "end of  child" << id << endl;
 }
 
@@ -64,24 +73,35 @@ int real_main(int proc_n, double a, double b, double epsilon) {
 
     //send tasks to children
     double child_len = (b - a) / proc_n;
+    pid_t child_pids[proc_n];
     for (int i = 0; i < proc_n; i++) {
         pid_t pid = fork();
         if (pid == 0) {
             //we in child
             child_main(i, a + child_len * i * 1.0, a + child_len * (i * 1.0 + 1), epsilon);
             return 0;
+        } else {
+            child_pids[i] = pid;
         }
     }
     //we in main process. collect data from pipe.
     double result = 0.0;
     for (int i = 0; i < proc_n; ++i) {
-        read(result_pipe[0], msg_read, 256);
-        result += strtod(msg_read, NULL);
+        read(result_pipe[0], &msg_read, sizeof(double));
+        result += msg_read;
 
         //release child  lock
         write(lock_pipe[1], lock, 1);
     }
     cout << "integral value: " << result << endl;
+
+    cout << "waiting for all childs " << endl;
+    int res = 0;
+    for (int i = 0; i < proc_n; ++i) {
+        waitpid(child_pids[i], &res, 0);
+    }
+
+    close_all_pipes();
     cout << "main exiting " << endl;
     return 0;
 }
