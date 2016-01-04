@@ -45,7 +45,7 @@ void close_all_pipes() {
     close(result_pipe[0]);
     close(result_pipe[1]);
     close(lock_pipe[0]);
-    close(lock_pipe[0]);
+    close(lock_pipe[1]);
 }
 
 
