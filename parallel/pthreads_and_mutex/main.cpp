@@ -9,9 +9,8 @@ using namespace std;
 int RECURSION_LIMIT = 100;
 int SPLIT_FACTOR = 10;
 
-volatile double thread_res = 0;
+volatile double global_result = 0;
 mutex _lock;
-volatile int state = 1;
 
 void print_args_error() {
     cout << "Wrong args" << endl;
@@ -55,22 +54,10 @@ void *child_main(void *arguments) {//int id, double _a, double _b, double epsilo
     double result = calculate_integral(args->_a, args->_b, args->epsilon, RECURSION_LIMIT);
 
     //acquire lock
-    while (true) {
+    _lock.lock();
+    global_result += result;
+    _lock.unlock();
 
-        if (state == 1) {
-            _lock.lock();
-            //second check
-            if (state == 1) {
-                thread_res = result;
-                state = 0;
-                _lock.unlock();
-                break;
-            }
-            _lock.unlock();
-        } else {
-            usleep(100 + rand() % 50);
-        }
-    }
     cout << "end of  child" << args->id << endl;
     return NULL;
 }
@@ -89,34 +76,20 @@ int real_main(int proc_n, double a, double b, double epsilon) {
         args[i].epsilon = epsilon;
         args[i].id = i;
         if (pthread_create(&threads[i], NULL, child_main, (void *) &args[i]) != 0) {
-            cout << "Uh-oh!\n" <<endl;
+            cout << "Uh-oh!\n" << endl;
             exit(-1);
         }
     }
     //we in main process. collect data f
-    double result = 0.0;
-    for (int i = 0; i < proc_n;) {
-        if (state == 0) {
-            _lock.lock();
-            //second check
-            if (state == 0) {
-                result += thread_res;
-                state = 1;
-                ++i;
-            }
-            _lock.unlock();
-        } else {
-            usleep(100 + rand() % 50);
-        }
-    }
-    cout << "integral value: " << result << endl;
-    cout << "Now joining threads " << endl;
-    for(int i=0; i < proc_n; ++i){
-        if(pthread_join(threads[i], NULL)) {
+
+    cout << "Joining threads " << endl;
+    for (int i = 0; i < proc_n; ++i) {
+        if (pthread_join(threads[i], NULL)) {
             fprintf(stderr, "Error joining thread\n");
             return 2;
         }
     }
+    cout << "integral value: " << global_result << endl;
     cout << "Joined. Main exiting " << endl;
     return 0;
 }
