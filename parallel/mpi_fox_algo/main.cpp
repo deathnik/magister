@@ -209,16 +209,24 @@ void run_fox(GridInfo *grid, Matrix *local_A, Matrix *local_B, Matrix *local_C) 
     // where send data and form where recieve it
     int source = (grid->row + 1) % grid->q;
     int dest = (grid->row + grid->q - 1) % grid->q;
+    Matrix *tmp = new Matrix(local_A->size);
 
     int broadcast_address;
     for (int i = 0; i < grid->q; i++) {
         broadcast_address = (grid->row + i) % grid->q;
-        MPI_Bcast(local_A, 1, MPI_MATRIX_TYPE, broadcast_address, grid->row_comm);
-        matrix_multiply(local_A, local_B, local_C);
+        if (broadcast_address == grid->col) {
+            MPI_Bcast(local_A, 1, MPI_MATRIX_TYPE, broadcast_address, grid->row_comm);
+            matrix_multiply(local_A, local_B, local_C);
+        } else {
+            MPI_Bcast(tmp, 1, MPI_MATRIX_TYPE, broadcast_address, grid->row_comm);
+            matrix_multiply(tmp, local_B,local_C);
+        }
+
 
         MPI_Sendrecv_replace(local_B, 1, MPI_MATRIX_TYPE, dest, 0, source, 0, grid->col_comm, &status);
     }
 
+    delete tmp;
 }
 
 
@@ -268,6 +276,3 @@ int main(int argc, char *argv[]) {
     MPI_Finalize();
     return 0;
 }
-
-
-
