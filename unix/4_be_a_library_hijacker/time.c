@@ -5,10 +5,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+char * tmp;
 time_t time(time_t * t)
 {
-	time_t fixedTime= atoi(getenv("FIXED_TIME"));
-    if(t!=NULL)
+	tmp = getenv("FIXED_TIME");
+	time_t fixedTime = 0;
+	if (tmp != NULL)
+		fixedTime = atoi(tmp);
+    if (t != NULL)
         *t=fixedTime;
     return fixedTime;
 }
