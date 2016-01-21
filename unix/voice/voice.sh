@@ -1,4 +1,10 @@
 #!/bin/bash
+
+if [ -z "$1" ] || [ "$1" == "-h" ]; then
+    echo "Usage: $0 <path_to_file_with_data>" 1>&2
+    exit 1
+fi
+
 filename=$1
 
 log="errors.log"
@@ -31,11 +37,8 @@ on_error(){
 welcome="Type the phrases you hear. Type a single question mark character to repeat, empty line to finish"
 #say_something "$welcome"
 
-random_line=$(shuf -n 1 $filename)
-
-
-
-while IFS='' read -r line || [[ -n "$line" ]]; do
+while true; do
+	line=$(shuf -n 1 $filename)
 	while true ; do
 		say_something "$line" ;
        	read -r answer </dev/tty
@@ -57,4 +60,4 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
     else
     	on_error "$clean_line" "$clean_answer"
     fi
-done < "$filename"
+done
